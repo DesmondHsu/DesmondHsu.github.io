@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Company Dashboard</title>
+    <title>Agentic Dashboard</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
@@ -289,14 +289,13 @@
                             }
 
                             const parts = geminiData.candidates[0].content.parts;
-                            // Use Array.prototype.find() to locate the part with functionCall and string args
-                            const functionCallPart = parts.find(part => part.functionCall && typeof part.functionCall.args === 'string');
+                            // Use Array.prototype.find() to locate the part with functionCall and object args
+                            const functionCallPart = parts.find(part => part.functionCall && typeof part.functionCall.args === 'object');
 
                             if (functionCallPart) {
-                                const rawArgs = functionCallPart.functionCall.args;
-                                console.log("Found functionCall.args:", rawArgs);
+                                const parsedInsights = functionCallPart.functionCall.args;
+                                console.log("Found functionCall.args object:", parsedInsights);
                                 // The existing outer try-catch for "processing Gemini data" will handle JSON.parse errors
-                                const parsedInsights = JSON.parse(rawArgs); 
                                 
                                 currentCompetitorsList = parsedInsights.competitors || [];
                                 updateSpinnerText("Insights gathered! Preparing dashboard...", false); 
@@ -307,6 +306,7 @@
                                 Object.values(window.competitorChartInstances).forEach(chart => chart.destroy());
                                 window.competitorChartInstances = {};
 
+                                const chartRenderTasks = [];
                                 if (parsedInsights.competitors && dashboardTabs && dashboardTabContent) {
                                     parsedInsights.competitors.forEach(competitorName => {
                                         const sanId = sanitizeForId(competitorName); const tabId = `${sanId}-tab-button`; const contentId = `${sanId}-content`;
@@ -318,16 +318,17 @@
                                         const chartDiv = document.createElement('div'); chartDiv.className = 'mb-6 bg-white p-4 rounded-lg shadow dark:bg-gray-700';
                                         const chartTitle = document.createElement('h3'); chartTitle.className = 'text-lg font-semibold mb-2 text-gray-700 dark:text-gray-300'; chartTitle.textContent = `Social Media Activity`; chartDiv.appendChild(chartTitle);
                                         const canvas = document.createElement('canvas'); canvas.id = `${sanId}-social-chart`; canvas.style.height = '300px'; canvas.style.width = '100%'; chartDiv.appendChild(canvas); pane.appendChild(chartDiv);
-                                        renderCompetitorSocialChart(competitorName, canvas.id);
                                         const chatContainer = document.createElement('div'); chatContainer.className = 'mt-6 pt-4 border-t border-gray-200 dark:border-gray-600';
                                         const chatTitleEl = document.createElement('h3'); chatTitleEl.className = 'text-lg font-semibold mb-2 text-gray-700 dark:text-gray-300'; chatTitleEl.textContent = `Chat about ${competitorName}`; chatContainer.appendChild(chatTitleEl);
                                         const chatInner = document.createElement('div'); chatInner.className = 'bg-white p-3 rounded-lg shadow dark:bg-gray-700';
-                                        const textarea = document.createElement('textarea'); textarea.id = `${sanId}-chat-input`; textarea.className = 'w-full p-2 border border-gray-300 rounded-md dark:bg-gray-600 dark:text-white dark:placeholder-gray-400'; textarea.rows = 3; textarea.placeholder = "Ask me anything..."; chatInner.appendChild(textarea);
+                                        const textarea = document.createElement('textarea'); textarea.id = `${sanId}-chat-input`; textarea.className = 'w-full p-2 border border-gray-300 rounded-md dark:bg-gray-600 dark:text-white dark:placeholder-gray-400'; textarea.rows = 3; textarea.placeholder = "Ask me anything - marketing focus, brand image, comparisons"; chatInner.appendChild(textarea);
                                         const chatBtn = document.createElement('button'); chatBtn.id = `${sanId}-chat-submit`; chatBtn.className = 'mt-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50'; chatBtn.textContent = 'Send';
                                         chatBtn.addEventListener('click', () => { textarea.value = ''; }); 
                                         chatInner.appendChild(chatBtn); chatContainer.appendChild(chatInner); pane.appendChild(chatContainer);
                                         dashboardTabContent.appendChild(pane);
+                                        chartRenderTasks.push({ name: competitorName, id: canvas.id });
                                     });
+                                    chartRenderTasks.forEach(task => { renderCompetitorSocialChart(task.name, task.id); });
                                 }
                                 
                                 const personasContainer = document.getElementById('personas-container');
@@ -342,8 +343,16 @@
                                     else personasContainer.innerHTML = `<p class="text-gray-500 dark:text-gray-400">No personas available.</p>`;
                                 }
 
-                                if (parsedInsights.competitors && parsedInsights.competitors.length > 0) renderOverviewChart(parsedInsights.competitors);
-                                else { const c = document.getElementById('overview-chart')?.parentElement; if(c) c.innerHTML = '<p class="dark:text-gray-400">No competitor data.</p>'; if (window.overviewChartInstance) { window.overviewChartInstance.destroy(); window.overviewChartInstance = null; } }
+                                if (parsedInsights.competitors && parsedInsights.competitors.length > 0) {
+                                    renderOverviewChart(parsedInsights.competitors);
+                                } else { 
+                                    const c = document.getElementById('overview-chart')?.parentElement; 
+                                    if(c) c.innerHTML = '<p class="dark:text-gray-400">No competitor data.</p>'; 
+                                    if (window.overviewChartInstance) { 
+                                        window.overviewChartInstance.destroy(); 
+                                        window.overviewChartInstance = null; 
+                                    } 
+                                }
                                 
                                 const overviewTabButton = document.getElementById('overview-tab-button'); if (overviewTabButton) activateTab(overviewTabButton);
                                 if (currentCompetitorsList.length > 0 || window.overviewChartInstance) { startActivitySimulation(); }
