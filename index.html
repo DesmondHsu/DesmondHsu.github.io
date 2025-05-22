@@ -306,6 +306,7 @@
                                 Object.values(window.competitorChartInstances).forEach(chart => chart.destroy());
                                 window.competitorChartInstances = {};
 
+                                const chartRenderTasks = [];
                                 if (parsedInsights.competitors && dashboardTabs && dashboardTabContent) {
                                     parsedInsights.competitors.forEach(competitorName => {
                                         const sanId = sanitizeForId(competitorName); const tabId = `${sanId}-tab-button`; const contentId = `${sanId}-content`;
@@ -317,7 +318,6 @@
                                         const chartDiv = document.createElement('div'); chartDiv.className = 'mb-6 bg-white p-4 rounded-lg shadow dark:bg-gray-700';
                                         const chartTitle = document.createElement('h3'); chartTitle.className = 'text-lg font-semibold mb-2 text-gray-700 dark:text-gray-300'; chartTitle.textContent = `Social Media Activity`; chartDiv.appendChild(chartTitle);
                                         const canvas = document.createElement('canvas'); canvas.id = `${sanId}-social-chart`; canvas.style.height = '300px'; canvas.style.width = '100%'; chartDiv.appendChild(canvas); pane.appendChild(chartDiv);
-                                        renderCompetitorSocialChart(competitorName, canvas.id);
                                         const chatContainer = document.createElement('div'); chatContainer.className = 'mt-6 pt-4 border-t border-gray-200 dark:border-gray-600';
                                         const chatTitleEl = document.createElement('h3'); chatTitleEl.className = 'text-lg font-semibold mb-2 text-gray-700 dark:text-gray-300'; chatTitleEl.textContent = `Chat about ${competitorName}`; chatContainer.appendChild(chatTitleEl);
                                         const chatInner = document.createElement('div'); chatInner.className = 'bg-white p-3 rounded-lg shadow dark:bg-gray-700';
@@ -326,7 +326,9 @@
                                         chatBtn.addEventListener('click', () => { textarea.value = ''; }); 
                                         chatInner.appendChild(chatBtn); chatContainer.appendChild(chatInner); pane.appendChild(chatContainer);
                                         dashboardTabContent.appendChild(pane);
+                                        chartRenderTasks.push({ name: competitorName, id: canvas.id });
                                     });
+                                    chartRenderTasks.forEach(task => { renderCompetitorSocialChart(task.name, task.id); });
                                 }
                                 
                                 const personasContainer = document.getElementById('personas-container');
@@ -341,8 +343,16 @@
                                     else personasContainer.innerHTML = `<p class="text-gray-500 dark:text-gray-400">No personas available.</p>`;
                                 }
 
-                                if (parsedInsights.competitors && parsedInsights.competitors.length > 0) renderOverviewChart(parsedInsights.competitors);
-                                else { const c = document.getElementById('overview-chart')?.parentElement; if(c) c.innerHTML = '<p class="dark:text-gray-400">No competitor data.</p>'; if (window.overviewChartInstance) { window.overviewChartInstance.destroy(); window.overviewChartInstance = null; } }
+                                if (parsedInsights.competitors && parsedInsights.competitors.length > 0) {
+                                    renderOverviewChart(parsedInsights.competitors);
+                                } else { 
+                                    const c = document.getElementById('overview-chart')?.parentElement; 
+                                    if(c) c.innerHTML = '<p class="dark:text-gray-400">No competitor data.</p>'; 
+                                    if (window.overviewChartInstance) { 
+                                        window.overviewChartInstance.destroy(); 
+                                        window.overviewChartInstance = null; 
+                                    } 
+                                }
                                 
                                 const overviewTabButton = document.getElementById('overview-tab-button'); if (overviewTabButton) activateTab(overviewTabButton);
                                 if (currentCompetitorsList.length > 0 || window.overviewChartInstance) { startActivitySimulation(); }
