@@ -289,14 +289,13 @@
                             }
 
                             const parts = geminiData.candidates[0].content.parts;
-                            // Use Array.prototype.find() to locate the part with functionCall and string args
-                            const functionCallPart = parts.find(part => part.functionCall && typeof part.functionCall.args === 'string');
+                            // Use Array.prototype.find() to locate the part with functionCall and object args
+                            const functionCallPart = parts.find(part => part.functionCall && typeof part.functionCall.args === 'object');
 
                             if (functionCallPart) {
-                                const rawArgs = functionCallPart.functionCall.args;
-                                console.log("Found functionCall.args:", rawArgs);
+                                const parsedInsights = functionCallPart.functionCall.args;
+                                console.log("Found functionCall.args object:", parsedInsights);
                                 // The existing outer try-catch for "processing Gemini data" will handle JSON.parse errors
-                                const parsedInsights = JSON.parse(rawArgs); 
                                 
                                 currentCompetitorsList = parsedInsights.competitors || [];
                                 updateSpinnerText("Insights gathered! Preparing dashboard...", false); 
