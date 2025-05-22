@@ -214,93 +214,145 @@
             const googleSearchApiKey = "AIzaSyCxFcWDPlRRDtfRZ2XJUkrV5Vmmk9wRVKE"; const cxId = "25599760b36804199";
             const query = companyUrl; const googleSearchApiUrl = `https://www.googleapis.com/customsearch/v1?key=${googleSearchApiKey}&cx=${cxId}&q=${encodeURIComponent(query)}`;
 
-            fetch(googleSearchApiUrl)
-                .then(response => { 
-                    if (!response.ok) return response.json().then(errData => { 
-                        const detail = errData.error && errData.error.message ? ` Detail: ${errData.error.message}` : '';
-                        throw new Error(`Failed to find company. Check URL or try again.${detail}`); 
-                    }); 
-                    return response.json(); 
-                })
-                .then(data => {
-                    console.log("Google Search results:", data); 
-                    updateSpinnerText("Extracting website content..."); // Clearer spinner message
-                    if (!data.items || data.items.length === 0) throw new Error("No search results found for the company URL. Please check the URL and try again.");
-                    const mockHtmlContent = `<html><head><title>${data.items[0].title || 'Example Company'}</title></head><body><h1>Welcome to ${data.items[0].pagemap?.metatags?.[0]?.['og:site_name'] || 'Example Company'}</h1><p>${data.items[0].snippet || 'We do amazing things.'}</p></body></html>`;
-                    updateSpinnerText("Analyzing content for competitors & personas..."); // Clearer spinner message
-                    const geminiApiKey = "AIzaSyDK6JO1gGSinvu_CBpuy9WqRMCZro2n0e8"; const geminiApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`;
-                    const prompt = `Based on the following website HTML, please identify up to 4 potential competitors and create 4 distinct user personas. A persona should have a name and a short description.\n\nWebsite HTML:\n${mockHtmlContent}`;
-                    const geminiRequestBody = { contents: [{ role: "user", parts: [{ text: prompt }] }], tools: [{ functionDeclarations: [{ name: "extract_company_insights", description: "Extracts competitor list and user personas.", parameters: { type: "object", properties: { competitors: { type: "array", items: { "type": "string" } }, personas: { type: "array", items: { type: "object", properties: { name: { "type": "string" }, description: { "type": "string" } }, required: ["name", "description"] } } }, required: ["competitors", "personas"] } }] }] };
-                    return fetch(geminiApiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(geminiRequestBody) });
-                })
-                .then(response => { 
-                    if (!response.ok) return response.json().then(errData => { 
-                        const detail = errData.error && errData.error.message ? ` Detail: ${errData.error.message}` : '';
-                        throw new Error(`Could not extract insights. Please try again.${detail}`); 
-                    }); 
-                    return response.json(); 
-                })
-                .then(geminiData => {
-                    console.log("Raw Gemini API response:", geminiData);
-                    if (!geminiData.candidates?.[0]?.content?.parts?.[0]?.functionCall) throw new Error("Unexpected Gemini API response structure. Could not parse insights.");
-                    const parsedInsights = JSON.parse(geminiData.candidates[0].content.parts[0].functionCall.args);
-                    currentCompetitorsList = parsedInsights.competitors || [];
-                    updateSpinnerText("Insights gathered! Preparing dashboard...", false); // Clearer spinner message
-                    setTimeout(() => { const c = document.getElementById('spinner-container'); if(c) c.style.display = 'none'; if(dashboardContainer) dashboardContainer.classList.remove('blur-background'); }, 1500); 
+            try { // Outer Try-Catch for the entire fetch operation and subsequent .then chain
+                fetch(googleSearchApiUrl)
+                    .then(response => {
+                        if (!response.ok) {
+                            // Attempt to get error details from response body for API errors
+                            return response.json().then(errData => {
+                                // Throw an error that includes status and API message
+                                throw new Error(`API error ${response.status}: ${errData?.error?.message || response.statusText}`);
+                            }).catch(jsonParseError => {
+                                // Fallback if parsing the error response fails
+                                console.error("Failed to parse Google Search API error response JSON during !response.ok handling:", jsonParseError); // Specific log
+                                throw new Error(`API error ${response.status}: ${response.statusText}. Failed to parse error response.`);
+                            });
+                        }
+                        try { // Detailed Try-Catch for response.json()
+                            return response.json();
+                        } catch (e) {
+                            console.error("Error parsing Google Search JSON:", e, JSON.stringify(e)); // Specific log
+                            updateSpinnerText("Failed to parse company search results.", true);
+                            throw e; // Re-throw to be caught by the main .catch
+                        }
+                    })
+                    .then(data => {
+                        try { // Detailed Try-Catch for processing data
+                            console.log('Google Search Results:', data);
+                            if (!data.items || data.items.length === 0) {
+                                updateSpinnerText("No search results found for the company.", true);
+                                throw new Error("No search results found"); // Stop further processing
+                            }
+                            
+                            updateSpinnerText("Extracting website content..."); 
+                            const mockHtmlContent = `<html><head><title>${data.items[0].title || 'Example Company'}</title></head><body><h1>Welcome to ${data.items[0].pagemap?.metatags?.[0]?.['og:site_name'] || 'Example Company'}</h1><p>${data.items[0].snippet || 'We do amazing things.'}</p></body></html>`;
+                            
+                            updateSpinnerText("Analyzing content for competitors & personas..."); 
+                            const geminiApiKey = "AIzaSyDK6JO1gGSinvu_CBpuy9WqRMCZro2n0e8"; const geminiApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`;
+                            const prompt = `Based on the following website HTML, please identify up to 4 potential competitors and create 4 distinct user personas. A persona should have a name and a short description.\n\nWebsite HTML:\n${mockHtmlContent}`;
+                            const geminiRequestBody = { contents: [{ role: "user", parts: [{ text: prompt }] }], tools: [{ functionDeclarations: [{ name: "extract_company_insights", description: "Extracts competitor list and user personas.", parameters: { type: "object", properties: { competitors: { type: "array", items: { "type": "string" } }, personas: { type: "array", items: { type: "object", properties: { name: { "type": "string" }, description: { "type": "string" } }, required: ["name", "description"] } } }, required: ["competitors", "personas"] } }] }] };
+                            // Return the fetch promise for the Gemini API call to continue the chain
+                            return fetch(geminiApiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(geminiRequestBody) });
+                        } catch (e) {
+                            console.error("Error processing Google Search data:", e, JSON.stringify(e)); // Specific log
+                            updateSpinnerText("Failed to process company search results.", true);
+                            throw e; // Re-throw
+                        }
+                    })
+                    .then(response => { // This .then is for the Gemini API response
+                        if (!response.ok) { // Error handling for Gemini API response
+                            return response.json().then(errData => {
+                                const detail = errData.error && errData.error.message ? ` Detail: ${errData.error.message}` : '';
+                                throw new Error(`Could not extract insights from Gemini. Please try again.${detail}`);
+                            }).catch(jsonParseError => {
+                                console.error("Failed to parse Gemini API error response JSON:", jsonParseError);
+                                throw new Error(`Gemini API error ${response.status}: ${response.statusText}. Failed to parse error response.`);
+                            });
+                        }
+                        try { // Detailed Try-Catch for Gemini response.json()
+                           return response.json();
+                        } catch (e) {
+                            console.error("Error parsing Gemini API JSON:", e, JSON.stringify(e));
+                            updateSpinnerText("Failed to parse insights data.", true);
+                            throw e;
+                        }
+                    })
+                    .then(geminiData => {
+                        try { // Detailed Try-Catch for processing Gemini data
+                            console.log("Raw Gemini API response:", geminiData);
+                            if (!geminiData.candidates?.[0]?.content?.parts?.[0]?.functionCall) {
+                                throw new Error("Unexpected Gemini API response structure. Could not parse insights.");
+                            }
+                            const parsedInsights = JSON.parse(geminiData.candidates[0].content.parts[0].functionCall.args);
+                            currentCompetitorsList = parsedInsights.competitors || [];
+                            updateSpinnerText("Insights gathered! Preparing dashboard...", false); 
+                            setTimeout(() => { const c = document.getElementById('spinner-container'); if(c) c.style.display = 'none'; if(dashboardContainer) dashboardContainer.classList.remove('blur-background'); }, 1500); 
 
-                    dashboardTabs.querySelectorAll('li:not(:first-child)').forEach(li => li.remove());
-                    dashboardTabContent.querySelectorAll('div:not(#overview-content)').forEach(div => div.remove());
-                    Object.values(window.competitorChartInstances).forEach(chart => chart.destroy());
-                    window.competitorChartInstances = {};
+                            dashboardTabs.querySelectorAll('li:not(:first-child)').forEach(li => li.remove());
+                            dashboardTabContent.querySelectorAll('div:not(#overview-content)').forEach(div => div.remove());
+                            Object.values(window.competitorChartInstances).forEach(chart => chart.destroy());
+                            window.competitorChartInstances = {};
 
-                    if (parsedInsights.competitors && dashboardTabs && dashboardTabContent) {
-                        parsedInsights.competitors.forEach(competitorName => {
-                            const sanId = sanitizeForId(competitorName); const tabId = `${sanId}-tab-button`; const contentId = `${sanId}-content`;
-                            const li = document.createElement('li'); li.className = 'mr-2'; li.setAttribute('role', 'presentation');
-                            const button = document.createElement('button'); button.className = 'inline-block p-4 border-b-2 rounded-t-lg inactive-tab-button'; button.id = tabId; button.type = 'button'; button.setAttribute('role', 'tab'); button.setAttribute('aria-controls', contentId); button.setAttribute('aria-selected', 'false'); button.textContent = competitorName;
-                            li.appendChild(button); dashboardTabs.appendChild(li);
-                            const pane = document.createElement('div'); pane.className = 'hidden p-4 rounded-lg bg-gray-50 dark:bg-gray-800'; pane.id = contentId; pane.setAttribute('role', 'tabpanel'); pane.setAttribute('aria-labelledby', tabId);
-                            const title = document.createElement('h2'); title.className = 'text-2xl font-bold text-gray-800 dark:text-white mb-4'; title.textContent = competitorName; pane.appendChild(title);
-                            const chartDiv = document.createElement('div'); chartDiv.className = 'mb-6 bg-white p-4 rounded-lg shadow dark:bg-gray-700';
-                            const chartTitle = document.createElement('h3'); chartTitle.className = 'text-lg font-semibold mb-2 text-gray-700 dark:text-gray-300'; chartTitle.textContent = `Social Media Activity`; chartDiv.appendChild(chartTitle);
-                            const canvas = document.createElement('canvas'); canvas.id = `${sanId}-social-chart`; canvas.style.height = '300px'; canvas.style.width = '100%'; chartDiv.appendChild(canvas); pane.appendChild(chartDiv);
-                            renderCompetitorSocialChart(competitorName, canvas.id);
-                            const chatContainer = document.createElement('div'); chatContainer.className = 'mt-6 pt-4 border-t border-gray-200 dark:border-gray-600';
-                            const chatTitleEl = document.createElement('h3'); chatTitleEl.className = 'text-lg font-semibold mb-2 text-gray-700 dark:text-gray-300'; chatTitleEl.textContent = `Chat about ${competitorName}`; chatContainer.appendChild(chatTitleEl);
-                            const chatInner = document.createElement('div'); chatInner.className = 'bg-white p-3 rounded-lg shadow dark:bg-gray-700';
-                            const textarea = document.createElement('textarea'); textarea.id = `${sanId}-chat-input`; textarea.className = 'w-full p-2 border border-gray-300 rounded-md dark:bg-gray-600 dark:text-white dark:placeholder-gray-400'; textarea.rows = 3; textarea.placeholder = "Ask me anything..."; chatInner.appendChild(textarea);
-                            const chatBtn = document.createElement('button'); chatBtn.id = `${sanId}-chat-submit`; chatBtn.className = 'mt-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50'; chatBtn.textContent = 'Send';
-                            chatBtn.addEventListener('click', () => { textarea.value = ''; }); // Clear textarea on click
-                            chatInner.appendChild(chatBtn); chatContainer.appendChild(chatInner); pane.appendChild(chatContainer);
-                            dashboardTabContent.appendChild(pane);
-                        });
-                    }
-                    
-                    const personasContainer = document.getElementById('personas-container');
-                    if (parsedInsights.personas && personasContainer) {
-                        personasContainer.innerHTML = ''; 
-                        if (parsedInsights.personas.length > 0) parsedInsights.personas.forEach(p => { 
-                            const card = document.createElement('div'); 
-                            // Polished persona card styling
-                            card.className = 'bg-slate-100 p-4 rounded-lg shadow-md flex-1 basis-full md:basis-[48%] lg:basis-[30%]'; // Using basis for flex items
-                            card.innerHTML = `<h4 class="font-semibold text-lg text-blue-600 mb-1">${p.name}</h4><p class="text-sm text-gray-700">${p.description}</p>`; 
-                            personasContainer.appendChild(card); 
-                        });
-                        else personasContainer.innerHTML = `<p class="text-gray-500 dark:text-gray-400">No personas available.</p>`;
-                    }
+                            if (parsedInsights.competitors && dashboardTabs && dashboardTabContent) {
+                                parsedInsights.competitors.forEach(competitorName => {
+                                    const sanId = sanitizeForId(competitorName); const tabId = `${sanId}-tab-button`; const contentId = `${sanId}-content`;
+                                    const li = document.createElement('li'); li.className = 'mr-2'; li.setAttribute('role', 'presentation');
+                                    const button = document.createElement('button'); button.className = 'inline-block p-4 border-b-2 rounded-t-lg inactive-tab-button'; button.id = tabId; button.type = 'button'; button.setAttribute('role', 'tab'); button.setAttribute('aria-controls', contentId); button.setAttribute('aria-selected', 'false'); button.textContent = competitorName;
+                                    li.appendChild(button); dashboardTabs.appendChild(li);
+                                    const pane = document.createElement('div'); pane.className = 'hidden p-4 rounded-lg bg-gray-50 dark:bg-gray-800'; pane.id = contentId; pane.setAttribute('role', 'tabpanel'); pane.setAttribute('aria-labelledby', tabId);
+                                    const title = document.createElement('h2'); title.className = 'text-2xl font-bold text-gray-800 dark:text-white mb-4'; title.textContent = competitorName; pane.appendChild(title);
+                                    const chartDiv = document.createElement('div'); chartDiv.className = 'mb-6 bg-white p-4 rounded-lg shadow dark:bg-gray-700';
+                                    const chartTitle = document.createElement('h3'); chartTitle.className = 'text-lg font-semibold mb-2 text-gray-700 dark:text-gray-300'; chartTitle.textContent = `Social Media Activity`; chartDiv.appendChild(chartTitle);
+                                    const canvas = document.createElement('canvas'); canvas.id = `${sanId}-social-chart`; canvas.style.height = '300px'; canvas.style.width = '100%'; chartDiv.appendChild(canvas); pane.appendChild(chartDiv);
+                                    renderCompetitorSocialChart(competitorName, canvas.id);
+                                    const chatContainer = document.createElement('div'); chatContainer.className = 'mt-6 pt-4 border-t border-gray-200 dark:border-gray-600';
+                                    const chatTitleEl = document.createElement('h3'); chatTitleEl.className = 'text-lg font-semibold mb-2 text-gray-700 dark:text-gray-300'; chatTitleEl.textContent = `Chat about ${competitorName}`; chatContainer.appendChild(chatTitleEl);
+                                    const chatInner = document.createElement('div'); chatInner.className = 'bg-white p-3 rounded-lg shadow dark:bg-gray-700';
+                                    const textarea = document.createElement('textarea'); textarea.id = `${sanId}-chat-input`; textarea.className = 'w-full p-2 border border-gray-300 rounded-md dark:bg-gray-600 dark:text-white dark:placeholder-gray-400'; textarea.rows = 3; textarea.placeholder = "Ask me anything..."; chatInner.appendChild(textarea);
+                                    const chatBtn = document.createElement('button'); chatBtn.id = `${sanId}-chat-submit`; chatBtn.className = 'mt-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50'; chatBtn.textContent = 'Send';
+                                    chatBtn.addEventListener('click', () => { textarea.value = ''; }); 
+                                    chatInner.appendChild(chatBtn); chatContainer.appendChild(chatInner); pane.appendChild(chatContainer);
+                                    dashboardTabContent.appendChild(pane);
+                                });
+                            }
+                            
+                            const personasContainer = document.getElementById('personas-container');
+                            if (parsedInsights.personas && personasContainer) {
+                                personasContainer.innerHTML = ''; 
+                                if (parsedInsights.personas.length > 0) parsedInsights.personas.forEach(p => { 
+                                    const card = document.createElement('div'); 
+                                    card.className = 'bg-slate-100 p-4 rounded-lg shadow-md flex-1 basis-full md:basis-[48%] lg:basis-[30%]'; 
+                                    card.innerHTML = `<h4 class="font-semibold text-lg text-blue-600 mb-1">${p.name}</h4><p class="text-sm text-gray-700">${p.description}</p>`; 
+                                    personasContainer.appendChild(card); 
+                                });
+                                else personasContainer.innerHTML = `<p class="text-gray-500 dark:text-gray-400">No personas available.</p>`;
+                            }
 
-                    if (parsedInsights.competitors && parsedInsights.competitors.length > 0) renderOverviewChart(parsedInsights.competitors);
-                    else { const c = document.getElementById('overview-chart')?.parentElement; if(c) c.innerHTML = '<p class="dark:text-gray-400">No competitor data.</p>'; if (window.overviewChartInstance) { window.overviewChartInstance.destroy(); window.overviewChartInstance = null; } }
-                    
-                    const overviewTabButton = document.getElementById('overview-tab-button'); if (overviewTabButton) activateTab(overviewTabButton);
-                    if (currentCompetitorsList.length > 0 || window.overviewChartInstance) { startActivitySimulation(); }
+                            if (parsedInsights.competitors && parsedInsights.competitors.length > 0) renderOverviewChart(parsedInsights.competitors);
+                            else { const c = document.getElementById('overview-chart')?.parentElement; if(c) c.innerHTML = '<p class="dark:text-gray-400">No competitor data.</p>'; if (window.overviewChartInstance) { window.overviewChartInstance.destroy(); window.overviewChartInstance = null; } }
+                            
+                            const overviewTabButton = document.getElementById('overview-tab-button'); if (overviewTabButton) activateTab(overviewTabButton);
+                            if (currentCompetitorsList.length > 0 || window.overviewChartInstance) { startActivitySimulation(); }
+                        } catch (e) { // Catch for errors during Gemini data processing & UI updates
+                            console.error("Error processing Gemini data and updating UI:", e, JSON.stringify(e));
+                            updateSpinnerText("Failed to process insights and update dashboard.", true);
+                            throw e; // Re-throw to the main catch
+                        }
+                    })
+                    .catch(error => { // Main Catch Block for the entire chain (Google Search, Gemini, UI updates)
+                        // Error from any part of the chain (network, parsing, processing) will be caught here
+                        console.error("Error in processing chain:", error, typeof error === 'object' ? JSON.stringify(error) : String(error)); // Updated log message
+                        updateSpinnerText(error.message || "An unexpected error occurred in the processing chain. Please try again.", true); 
+                        stopActivitySimulation(); 
+                    });
+            } catch (e) { // Outer Try-Catch
+                console.error("Critical error during Google Search fetch setup:", e, JSON.stringify(e)); // Specific log
+                updateSpinnerText("A critical error occurred while trying to fetch company data. Please try again.", true);
+                stopActivitySimulation();
+            }
+        }
 
-                })
-                .catch(error => { 
-                    console.error("Error in processing chain:", error); 
-                    updateSpinnerText(error.message || "An unexpected error occurred. Please try again.", true); // Use error message directly if available
-                    stopActivitySimulation(); 
-                });
+        // Add event listener for overview chat submit
         }
 
         // Add event listener for overview chat submit
