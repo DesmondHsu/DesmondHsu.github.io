@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Company Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .blur-background {
+            filter: blur(4px);
+            transition: filter 0.3s ease-out; /* Smooth transition for unblur */
+        }
+        /* Basic spinner for demonstration */
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, .1);
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border-left-color: #09f;
+            animation: spin 1s ease infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        /* Active tab styling */
+        .active-tab-button {
+            border-color: #3b82f6; /* blue-500 */
+            color: #3b82f6; /* blue-600 */
+        }
+        .inactive-tab-button {
+            border-color: transparent;
+        }
+        .inactive-tab-button:hover {
+            border-color: #d1d5db; /* gray-300 */
+            color: #4b5563; /* gray-600 */
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+
+    <div id="dashboard-container" class="blur-background p-8">
+        <div class="mb-4 border-b border-gray-200 dark:border-gray-700">
+            <ul class="flex flex-wrap -mb-px text-sm font-medium text-center" id="dashboard-tabs" role="tablist">
+                <li class="mr-2" role="presentation">
+                    <button class="inline-block p-4 border-b-2 rounded-t-lg inactive-tab-button" id="overview-tab-button" type="button" role="tab" aria-controls="overview-content" aria-selected="false">Overview</button>
+                </li>
+                <!-- Competitor tabs will be added here by JavaScript -->
+            </ul>
+        </div>
+        <div id="dashboard-tab-content">
+            <div class="hidden p-4 rounded-lg bg-gray-50 dark:bg-gray-800" id="overview-content" role="tabpanel" aria-labelledby="overview-tab-button">
+                <h2 class="text-xl font-semibold text-gray-800 dark:text-white mb-4">Overview</h2>
+                
+                <div id="personas-container" class="mb-6 flex flex-wrap justify-around gap-4">
+                    <!-- Personas will be added here -->
+                </div>
+
+                <div class="mb-6">
+                    <h3 class="text-lg font-semibold mb-2 text-gray-700 dark:text-gray-300">Competitor Activity Overview</h3>
+                    <div class="bg-white p-4 rounded-lg shadow dark:bg-gray-700">
+                        <canvas id="overview-chart" style="height:300px; width:100%;"></canvas>
+                    </div>
+                </div>
+
+                <div class="mt-6 pt-4 border-t border-gray-200 dark:border-gray-600">
+                    <h3 class="text-lg font-semibold mb-2 text-gray-700 dark:text-gray-300">Chat with InslightFlow</h3>
+                    <div class="bg-white p-3 rounded-lg shadow dark:bg-gray-700">
+                        <textarea id="overview-chat-input" class="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-600 dark:border-gray-500 dark:text-white dark:placeholder-gray-400" rows="3" placeholder="Tell me anything - about your company, your customers"></textarea>
+                        <button id="overview-chat-submit" class="mt-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50">Send</button>
+                    </div>
+                </div>
+            </div>
+            <!-- Competitor tab content panels will be added here by JavaScript -->
+        </div>
+    </div>
+
+    <div id="company-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center z-50">
+        <div class="p-8 border w-96 shadow-lg rounded-md bg-white">
+            <div class="text-center">
+                <h3 class="text-2xl font-semibold text-gray-900">Welcome!</h3>
+                <label for="company-url-input" class="text-sm text-gray-700 mt-4 block">What is your company website?</label>
+                <input type="text" id="company-url-input" class="mt-2 px-3 py-2 border border-gray-300 rounded-md w-full focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                <button id="submit-company-url" class="mt-6 w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50">
+                    Submit
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const modal = document.getElementById('company-modal');
+        const companyUrlInput = document.getElementById('company-url-input');
+        const submitButton = document.getElementById('submit-company-url');
+        const dashboardContainer = document.getElementById('dashboard-container'); 
+        const dashboardTabs = document.getElementById('dashboard-tabs');
+        const dashboardTabContent = document.getElementById('dashboard-tab-content');
+        
+        window.overviewChartInstance = null; 
+        window.competitorChartInstances = {};
+        let activityIntervalId = null;
+        let currentCompetitorsList = []; 
+
+        function sanitizeForId(name) {
+            return name.toLowerCase().replace(/[^a-z0-9_]+/g, '-').replace(/^-+|-+$/g, '');
+        }
+
+        function updateSpinnerText(newText, showError = false) {
+            const spinnerTextElement = document.getElementById('spinner-text');
+            if (spinnerTextElement) {
+                spinnerTextElement.textContent = newText;
+            }
+            const spinnerAnimation = document.querySelector('#spinner-container .spinner');
+            if (spinnerAnimation) {
+                spinnerAnimation.style.display = showError ? 'none' : 'block';
+            }
+        }
+        
+        function activateTab(tabButton) {
+            dashboardTabs.querySelectorAll('[role="tab"]').forEach(button => {
+                button.setAttribute('aria-selected', 'false');
+                button.classList.remove('active-tab-button', 'text-blue-600', 'border-blue-600');
+                button.classList.add('inactive-tab-button', 'hover:text-gray-600', 'hover:border-gray-300', 'dark:hover:text-gray-300');
+                const contentPanelId = button.getAttribute('aria-controls');
+                document.getElementById(contentPanelId)?.classList.add('hidden');
+            });
+
+            tabButton.setAttribute('aria-selected', 'true');
+            tabButton.classList.add('active-tab-button', 'text-blue-600', 'border-blue-600');
+            tabButton.classList.remove('inactive-tab-button', 'hover:text-gray-600', 'hover:border-gray-300', 'dark:hover:text-gray-300');
+            const activeContentPanelId = tabButton.getAttribute('aria-controls');
+            document.getElementById(activeContentPanelId)?.classList.remove('hidden');
+        }
+
+        function renderOverviewChart(competitors) {
+            if (window.overviewChartInstance) { window.overviewChartInstance.destroy(); }
+            const ctxOverview = document.getElementById('overview-chart')?.getContext('2d');
+            if (!ctxOverview) { console.error("Overview chart canvas not found!"); return; }
+            const chartLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct'];
+            const competitorColors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#C9CBCF', '#7A7A7A'];
+            const datasets = competitors.map((competitor, index) => ({
+                label: competitor, data: Array.from({length: chartLabels.length}, () => Math.floor(Math.random() * 450) + 50),
+                borderColor: competitorColors[index % competitorColors.length], backgroundColor: competitorColors[index % competitorColors.length] + '33', 
+                tension: 0.1, fill: false
+            }));
+            window.overviewChartInstance = new Chart(ctxOverview, { type: 'line', data: { labels: chartLabels, datasets: datasets }, options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, ticks: { color: '#000' }, grid: { color: '#DDD' } }, x: { ticks: { color: '#000' }, grid: { color: '#DDD' } } }, plugins: { legend: { position: 'top', labels: { color: '#000' } }, title: { display: true, text: 'Competitor Activity Trends (Mock Data)', color: '#000' } } } });
+        }
+
+        function renderCompetitorSocialChart(competitorName, canvasId) {
+            if (window.competitorChartInstances[canvasId]) { window.competitorChartInstances[canvasId].destroy(); }
+            const ctxCompetitor = document.getElementById(canvasId)?.getContext('2d');
+            if (!ctxCompetitor) { console.error(`Canvas with ID ${canvasId} not found for ${competitorName}`); return; }
+            const socialMediaPlatforms = ['Facebook', 'Google', 'Instagram', 'Youtube', 'X (Twitter)', 'Reddit', 'Snapchat', 'TikTok'];
+            const barColors = [ 'rgba(255, 99, 132, 0.6)', 'rgba(54, 162, 235, 0.6)', 'rgba(255, 206, 86, 0.6)', 'rgba(75, 192, 192, 0.6)', 'rgba(153, 102, 255, 0.6)', 'rgba(255, 159, 64, 0.6)', 'rgba(199, 199, 199, 0.6)', 'rgba(128, 0, 128, 0.6)' ];
+            const borderColors = [ 'rgb(255, 99, 132)', 'rgb(54, 162, 235)', 'rgb(255, 206, 86)', 'rgb(75, 192, 192)', 'rgb(153, 102, 255)', 'rgb(255, 159, 64)', 'rgb(199, 199, 199)', 'rgb(128, 0, 128)' ];
+            window.competitorChartInstances[canvasId] = new Chart(ctxCompetitor, { type: 'bar', data: { labels: socialMediaPlatforms, datasets: [{ label: `Activity for ${competitorName}`, data: socialMediaPlatforms.map(() => Math.floor(Math.random() * 300) + 50), backgroundColor: barColors, borderColor: borderColors, borderWidth: 1 }] }, options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y', scales: { x: { beginAtZero: true, ticks: { color: '#000' }, grid: { color: '#DDD' } }, y: { ticks: { color: '#000' }, grid: { color: '#DDD' } } }, plugins: { legend: { display: false }, title: { display: true, text: `${competitorName} - Social Media Platform Activity (Mock)`, color: '#000'} } } });
+        }
+
+        function simulateActivity(competitors, overviewChart, competitorCharts) {
+            if (!overviewChart && Object.keys(competitorCharts).length === 0) return; // No charts to update
+            const chartTypeToUpdate = Math.random() < 0.3 ? 'overview' : 'competitor';
+            if (chartTypeToUpdate === 'overview' && overviewChart && overviewChart.data.datasets.length > 0) {
+                const datasetIndex = Math.floor(Math.random() * overviewChart.data.datasets.length);
+                if (overviewChart.data.datasets[datasetIndex].data.length > 0) {
+                    const dataPointIndex = Math.floor(Math.random() * overviewChart.data.datasets[datasetIndex].data.length);
+                    overviewChart.data.datasets[datasetIndex].data[dataPointIndex] += Math.floor(Math.random() * 10) + 1;
+                    overviewChart.update();
+                }
+            } else if (competitors.length > 0 && Object.keys(competitorCharts).length > 0) {
+                const randomCompetitorName = competitors[Math.floor(Math.random() * competitors.length)];
+                const sanitizedName = sanitizeForId(randomCompetitorName);
+                const chartInstance = competitorCharts[sanitizedName + '-social-chart'];
+                if (chartInstance && chartInstance.data.datasets.length > 0 && chartInstance.data.labels.length > 0) {
+                    const dataPointIndex = Math.floor(Math.random() * chartInstance.data.labels.length);
+                    chartInstance.data.datasets[0].data[dataPointIndex] += Math.floor(Math.random() * 5) + 1;
+                    chartInstance.update();
+                }
+            }
+        }
+
+        function startActivitySimulation() {
+            if (activityIntervalId !== null) { clearTimeout(activityIntervalId); }
+            function scheduleNextSimulation() {
+                if (!document.hidden) { simulateActivity(currentCompetitorsList, window.overviewChartInstance, window.competitorChartInstances); }
+                const randomDelay = Math.floor(Math.random() * (700 - 200 + 1)) + 200;
+                activityIntervalId = setTimeout(scheduleNextSimulation, randomDelay);
+            }
+            scheduleNextSimulation();
+        }
+
+        function stopActivitySimulation() {
+            if (activityIntervalId !== null) { clearTimeout(activityIntervalId); activityIntervalId = null; }
+        }
+
+        function handleCompanySubmit() {
+            stopActivitySimulation();
+            const companyUrl = companyUrlInput.value.trim();
+            if (companyUrl === "") { alert("Please enter a company website."); return; } // User-friendly validation
+            if (modal) { modal.style.display = 'none'; }
+
+            let spinnerContainer = document.getElementById('spinner-container');
+            if (!spinnerContainer) { 
+                spinnerContainer = document.createElement('div'); spinnerContainer.id = 'spinner-container';
+                spinnerContainer.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex flex-col items-center justify-center z-50';
+                const spinnerContent = document.createElement('div'); spinnerContent.className = 'p-8 border w-auto max-w-md shadow-lg rounded-md bg-white text-center dark:bg-gray-800';
+                const spinnerText = document.createElement('p'); spinnerText.id = 'spinner-text'; spinnerText.className = 'text-gray-700 mb-4 dark:text-gray-300';
+                const spinnerElement = document.createElement('div'); spinnerElement.className = 'spinner mx-auto'; 
+                spinnerContent.appendChild(spinnerText); spinnerContent.appendChild(spinnerElement);
+                spinnerContainer.appendChild(spinnerContent); document.body.appendChild(spinnerContainer);
+            }
+            updateSpinnerText(`Looking up ${companyUrl}`); spinnerContainer.style.display = 'flex'; 
+            
+            const googleSearchApiKey = "AIzaSyCxFcWDPlRRDtfRZ2XJUkrV5Vmmk9wRVKE"; const cxId = "017576662512468239146:omuauf_lfve";
+            const query = companyUrl; const googleSearchApiUrl = `https://www.googleapis.com/customsearch/v1?key=${googleSearchApiKey}&cx=${cxId}&q=${encodeURIComponent(query)}`;
+
+            fetch(googleSearchApiUrl)
+                .then(response => { 
+                    if (!response.ok) return response.json().then(errData => { 
+                        const detail = errData.error && errData.error.message ? ` Detail: ${errData.error.message}` : '';
+                        throw new Error(`Failed to find company. Check URL or try again.${detail}`); 
+                    }); 
+                    return response.json(); 
+                })
+                .then(data => {
+                    console.log("Google Search results:", data); 
+                    updateSpinnerText("Extracting website content..."); // Clearer spinner message
+                    if (!data.items || data.items.length === 0) throw new Error("No search results found for the company URL. Please check the URL and try again.");
+                    const mockHtmlContent = `<html><head><title>${data.items[0].title || 'Example Company'}</title></head><body><h1>Welcome to ${data.items[0].pagemap?.metatags?.[0]?.['og:site_name'] || 'Example Company'}</h1><p>${data.items[0].snippet || 'We do amazing things.'}</p></body></html>`;
+                    updateSpinnerText("Analyzing content for competitors & personas..."); // Clearer spinner message
+                    const geminiApiKey = "AIzaSyDK6JO1gGSinvu_CBpuy9WqRMCZro2n0e8"; const geminiApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`;
+                    const prompt = `Based on the following website HTML, please identify up to 4 potential competitors and create 4 distinct user personas. A persona should have a name and a short description.\n\nWebsite HTML:\n${mockHtmlContent}`;
+                    const geminiRequestBody = { contents: [{ role: "user", parts: [{ text: prompt }] }], tools: [{ functionDeclarations: [{ name: "extract_company_insights", description: "Extracts competitor list and user personas.", parameters: { type: "object", properties: { competitors: { type: "array", items: { "type": "string" } }, personas: { type: "array", items: { type: "object", properties: { name: { "type": "string" }, description: { "type": "string" } }, required: ["name", "description"] } } }, required: ["competitors", "personas"] } }] }] };
+                    return fetch(geminiApiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(geminiRequestBody) });
+                })
+                .then(response => { 
+                    if (!response.ok) return response.json().then(errData => { 
+                        const detail = errData.error && errData.error.message ? ` Detail: ${errData.error.message}` : '';
+                        throw new Error(`Could not extract insights. Please try again.${detail}`); 
+                    }); 
+                    return response.json(); 
+                })
+                .then(geminiData => {
+                    console.log("Raw Gemini API response:", geminiData);
+                    if (!geminiData.candidates?.[0]?.content?.parts?.[0]?.functionCall) throw new Error("Unexpected Gemini API response structure. Could not parse insights.");
+                    const parsedInsights = JSON.parse(geminiData.candidates[0].content.parts[0].functionCall.args);
+                    currentCompetitorsList = parsedInsights.competitors || [];
+                    updateSpinnerText("Insights gathered! Preparing dashboard...", false); // Clearer spinner message
+                    setTimeout(() => { const c = document.getElementById('spinner-container'); if(c) c.style.display = 'none'; if(dashboardContainer) dashboardContainer.classList.remove('blur-background'); }, 1500); 
+
+                    dashboardTabs.querySelectorAll('li:not(:first-child)').forEach(li => li.remove());
+                    dashboardTabContent.querySelectorAll('div:not(#overview-content)').forEach(div => div.remove());
+                    Object.values(window.competitorChartInstances).forEach(chart => chart.destroy());
+                    window.competitorChartInstances = {};
+
+                    if (parsedInsights.competitors && dashboardTabs && dashboardTabContent) {
+                        parsedInsights.competitors.forEach(competitorName => {
+                            const sanId = sanitizeForId(competitorName); const tabId = `${sanId}-tab-button`; const contentId = `${sanId}-content`;
+                            const li = document.createElement('li'); li.className = 'mr-2'; li.setAttribute('role', 'presentation');
+                            const button = document.createElement('button'); button.className = 'inline-block p-4 border-b-2 rounded-t-lg inactive-tab-button'; button.id = tabId; button.type = 'button'; button.setAttribute('role', 'tab'); button.setAttribute('aria-controls', contentId); button.setAttribute('aria-selected', 'false'); button.textContent = competitorName;
+                            li.appendChild(button); dashboardTabs.appendChild(li);
+                            const pane = document.createElement('div'); pane.className = 'hidden p-4 rounded-lg bg-gray-50 dark:bg-gray-800'; pane.id = contentId; pane.setAttribute('role', 'tabpanel'); pane.setAttribute('aria-labelledby', tabId);
+                            const title = document.createElement('h2'); title.className = 'text-2xl font-bold text-gray-800 dark:text-white mb-4'; title.textContent = competitorName; pane.appendChild(title);
+                            const chartDiv = document.createElement('div'); chartDiv.className = 'mb-6 bg-white p-4 rounded-lg shadow dark:bg-gray-700';
+                            const chartTitle = document.createElement('h3'); chartTitle.className = 'text-lg font-semibold mb-2 text-gray-700 dark:text-gray-300'; chartTitle.textContent = `Social Media Activity`; chartDiv.appendChild(chartTitle);
+                            const canvas = document.createElement('canvas'); canvas.id = `${sanId}-social-chart`; canvas.style.height = '300px'; canvas.style.width = '100%'; chartDiv.appendChild(canvas); pane.appendChild(chartDiv);
+                            renderCompetitorSocialChart(competitorName, canvas.id);
+                            const chatContainer = document.createElement('div'); chatContainer.className = 'mt-6 pt-4 border-t border-gray-200 dark:border-gray-600';
+                            const chatTitleEl = document.createElement('h3'); chatTitleEl.className = 'text-lg font-semibold mb-2 text-gray-700 dark:text-gray-300'; chatTitleEl.textContent = `Chat about ${competitorName}`; chatContainer.appendChild(chatTitleEl);
+                            const chatInner = document.createElement('div'); chatInner.className = 'bg-white p-3 rounded-lg shadow dark:bg-gray-700';
+                            const textarea = document.createElement('textarea'); textarea.id = `${sanId}-chat-input`; textarea.className = 'w-full p-2 border border-gray-300 rounded-md dark:bg-gray-600 dark:text-white dark:placeholder-gray-400'; textarea.rows = 3; textarea.placeholder = "Ask me anything..."; chatInner.appendChild(textarea);
+                            const chatBtn = document.createElement('button'); chatBtn.id = `${sanId}-chat-submit`; chatBtn.className = 'mt-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50'; chatBtn.textContent = 'Send';
+                            chatBtn.addEventListener('click', () => { textarea.value = ''; }); // Clear textarea on click
+                            chatInner.appendChild(chatBtn); chatContainer.appendChild(chatInner); pane.appendChild(chatContainer);
+                            dashboardTabContent.appendChild(pane);
+                        });
+                    }
+                    
+                    const personasContainer = document.getElementById('personas-container');
+                    if (parsedInsights.personas && personasContainer) {
+                        personasContainer.innerHTML = ''; 
+                        if (parsedInsights.personas.length > 0) parsedInsights.personas.forEach(p => { 
+                            const card = document.createElement('div'); 
+                            // Polished persona card styling
+                            card.className = 'bg-slate-100 p-4 rounded-lg shadow-md flex-1 basis-full md:basis-[48%] lg:basis-[30%]'; // Using basis for flex items
+                            card.innerHTML = `<h4 class="font-semibold text-lg text-blue-600 mb-1">${p.name}</h4><p class="text-sm text-gray-700">${p.description}</p>`; 
+                            personasContainer.appendChild(card); 
+                        });
+                        else personasContainer.innerHTML = `<p class="text-gray-500 dark:text-gray-400">No personas available.</p>`;
+                    }
+
+                    if (parsedInsights.competitors && parsedInsights.competitors.length > 0) renderOverviewChart(parsedInsights.competitors);
+                    else { const c = document.getElementById('overview-chart')?.parentElement; if(c) c.innerHTML = '<p class="dark:text-gray-400">No competitor data.</p>'; if (window.overviewChartInstance) { window.overviewChartInstance.destroy(); window.overviewChartInstance = null; } }
+                    
+                    const overviewTabButton = document.getElementById('overview-tab-button'); if (overviewTabButton) activateTab(overviewTabButton);
+                    if (currentCompetitorsList.length > 0 || window.overviewChartInstance) { startActivitySimulation(); }
+
+                })
+                .catch(error => { 
+                    console.error("Error in processing chain:", error); 
+                    updateSpinnerText(error.message || "An unexpected error occurred. Please try again.", true); // Use error message directly if available
+                    stopActivitySimulation(); 
+                });
+        }
+
+        // Add event listener for overview chat submit
+        const overviewChatSubmitButton = document.getElementById('overview-chat-submit');
+        if (overviewChatSubmitButton) {
+            overviewChatSubmitButton.addEventListener('click', () => {
+                const overviewChatInput = document.getElementById('overview-chat-input');
+                if (overviewChatInput) overviewChatInput.value = '';
+            });
+        }
+
+        if (submitButton) submitButton.addEventListener('click', handleCompanySubmit);
+        if (companyUrlInput) companyUrlInput.addEventListener('keypress', (event) => { if (event.key === 'Enter' || event.keyCode === 13) handleCompanySubmit(); });
+        if (dashboardTabs) dashboardTabs.addEventListener('click', (event) => { const btn = event.target.closest('button[role="tab"]'); if (btn) { event.preventDefault(); activateTab(btn); } });
+        
+    </script>
+</body>
+</html>
