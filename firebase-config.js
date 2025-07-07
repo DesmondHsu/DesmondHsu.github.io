@@ -22,36 +22,7 @@ auth.useDeviceLanguage();
 // Initialize Google Auth Provider
 const provider = new firebase.auth.GoogleAuthProvider();
 
-// Handle redirect result
-auth.getRedirectResult()
-  .then((result) => {
-    if (result.user) {
-      // This gives you a Google Access Token
-      const credential = firebase.auth.GoogleAuthProvider.credentialFromResult(result);
-      const token = credential?.accessToken;
-      
-      // The signed-in user info
-      const user = result.user;
-      
-      console.log("Sign-in successful!");
-      console.log("Access Token:", token);
-      console.log("User:", user);
-      console.log("User Email:", user.email);
-      console.log("User Name:", user.displayName);
-    }
-  })
-  .catch((error) => {
-    const errorCode = error.code;
-    const errorMessage = error.message;
-    const email = error.customData?.email;
-    const credential = firebase.auth.GoogleAuthProvider.credentialFromError(error);
-    
-    console.error("Redirect sign-in failed:");
-    console.error("Error Code:", errorCode);
-    console.error("Error Message:", errorMessage);
-    console.error("Email:", email);
-    console.error("Credential:", credential);
-  });
+// Using popup auth flow - no redirect result handling needed
 
 console.log("Firebase initialized successfully");
 console.log("Auth:", auth);

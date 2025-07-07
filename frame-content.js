@@ -87,8 +87,21 @@ function FrameContent() {
     }
 
     try {
-      // Use redirect instead of popup to avoid CORS issues
-      await auth.signInWithRedirect(provider);
+      // Use popup instead of redirect to avoid GitHub Pages parameter issues
+      const result = await auth.signInWithPopup(provider);
+      
+      // This gives you a Google Access Token
+      const credential = firebase.auth.GoogleAuthProvider.credentialFromResult(result);
+      const token = credential?.accessToken;
+      
+      // The signed-in user info
+      const user = result.user;
+      
+      console.log("Sign-in successful!");
+      console.log("Access Token:", token);
+      console.log("User:", user);
+      console.log("User Email:", user.email);
+      console.log("User Name:", user.displayName);
     } catch (error) {
       // Handle Errors here
       const errorCode = error.code;
