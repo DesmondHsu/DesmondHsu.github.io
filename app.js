@@ -48,13 +48,14 @@ function LandscapeFrame({ children }) {
 function App() {
   const bodyStyle = {
     margin: 0,
-    padding: "20px",
+    padding: 0,
     backgroundColor: "#f0f0f0",
     display: "flex",
     justifyContent: "center",
     alignItems: "center",
-    minHeight: "100vh",
+    height: "100vh",
     fontFamily: "Arial, sans-serif",
+    overflow: "hidden",
   };
 
   return (
