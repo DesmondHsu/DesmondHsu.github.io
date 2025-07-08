@@ -1,6 +1,7 @@
 function FrameContent() {
   const [user, setUser] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
+  const [currentPage, setCurrentPage] = React.useState("Home");
 
   // Listen for auth state changes
   React.useEffect(() => {
@@ -37,9 +38,6 @@ function FrameContent() {
 
   // If user is logged in, show blank/nothing
   if (user) {
-    // currentPage state and setter, default to 'Home'
-    const [currentPage, setCurrentPage] = React.useState('Home');
-
     // Placeholder for PageContentArea and BottomNavigationBar
     // These will be defined in subsequent steps.
     // For now, let's imagine they exist and FrameContent passes props to them.
@@ -55,13 +53,13 @@ function FrameContent() {
 
     // Page Components
     const pageStyle = {
-      width: '100%',
-      height: '100%',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      color: 'white', // Default text color for pages
-      fontSize: '20px',
+      width: "100%",
+      height: "100%",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      color: "white", // Default text color for pages
+      fontSize: "20px",
     };
 
     const HomePage = () => <div style={pageStyle}>Home Page</div>;
@@ -73,54 +71,89 @@ function FrameContent() {
     const PageContentArea = ({ currentPage }) => {
       const containerStyle = {
         flexGrow: 1, // Takes up available space
-        width: '100%',
-        overflowY: 'auto', // In case content overflows
+        width: "100%",
+        overflowY: "auto", // In case content overflows
       };
 
       // Render all pages, but only the active one is visible
       // This keeps their state if they were to become stateful later.
       return (
         <div style={containerStyle}>
-          <div style={{ display: currentPage === 'Home' ? 'flex' : 'none', height: '100%' }}><HomePage /></div>
-          <div style={{ display: currentPage === 'Friends' ? 'flex' : 'none', height: '100%' }}><FriendsPage /></div>
-          <div style={{ display: currentPage === 'Create' ? 'flex' : 'none', height: '100%' }}><CreatePage /></div>
-          <div style={{ display: currentPage === 'Inbox' ? 'flex' : 'none', height: '100%' }}><InboxPage /></div>
-          <div style={{ display: currentPage === 'Profile' ? 'flex' : 'none', height: '100%' }}><ProfilePage /></div>
+          <div
+            style={{
+              display: currentPage === "Home" ? "flex" : "none",
+              height: "100%",
+            }}
+          >
+            <HomePage />
+          </div>
+          <div
+            style={{
+              display: currentPage === "Friends" ? "flex" : "none",
+              height: "100%",
+            }}
+          >
+            <FriendsPage />
+          </div>
+          <div
+            style={{
+              display: currentPage === "Create" ? "flex" : "none",
+              height: "100%",
+            }}
+          >
+            <CreatePage />
+          </div>
+          <div
+            style={{
+              display: currentPage === "Inbox" ? "flex" : "none",
+              height: "100%",
+            }}
+          >
+            <InboxPage />
+          </div>
+          <div
+            style={{
+              display: currentPage === "Profile" ? "flex" : "none",
+              height: "100%",
+            }}
+          >
+            <ProfilePage />
+          </div>
         </div>
       );
     };
 
     const BottomNavigationBar = ({ currentPage, setCurrentPage }) => {
       const navBarStyle = {
-        height: '60px', // Standard height for a nav bar
-        backgroundColor: 'black',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-around', // Distribute items evenly
-        padding: '0 10px', // Some horizontal padding
-        borderTop: '1px solid #333', // Optional: a subtle top border
+        height: "60px", // Standard height for a nav bar
+        backgroundColor: "black",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-around", // Distribute items evenly
+        padding: "0 10px", // Some horizontal padding
+        borderTop: "1px solid #333", // Optional: a subtle top border
       };
 
       const navItemStyle = {
-        display: 'flex',
-        flexDirection: 'column', // Icon above text
-        alignItems: 'center',
-        justifyContent: 'center',
-        cursor: 'pointer',
+        display: "flex",
+        flexDirection: "column", // Icon above text
+        alignItems: "center",
+        justifyContent: "center",
+        cursor: "pointer",
         flexGrow: 1, // Each item takes equal width
-        textAlign: 'center',
-        padding: '5px 0', // Padding for touch target
+        textAlign: "center",
+        padding: "5px 0", // Padding for touch target
       };
 
       const iconStyle = (isActive) => ({
-        fontSize: '20px', // Adjust as needed for emojis/text icons
-        color: isActive ? 'white' : 'grey',
-        marginBottom: '2px', // Space between icon and text
+        fontSize: "20px", // Adjust as needed for emojis/text icons
+        color: isActive ? "white" : "grey",
+        marginBottom: "2px", // Space between icon and text
       });
 
       const textStyle = (isActive) => ({
-        fontSize: '10px', // Smaller text for nav items
-        color: isActive ? 'white' : 'grey',
+        fontSize: "10px", // Smaller text for nav items
+        color: isActive ? "white" : "grey",
       });
 
       const createButtonStyle = (isActive) => ({
@@ -135,20 +168,22 @@ function FrameContent() {
         // padding: '0' // Reset padding if using fixed width/height for a circular button
       });
 
-
       const navItems = [
-        { name: 'Home', icon: '🏠' },
-        { name: 'Friends', icon: '👥' },
-        { name: 'Create', icon: '➕' }, // Using 'Create' as page name for the '+' button's view
-        { name: 'Inbox', icon: '📥' },
-        { name: 'Profile', icon: '👤' },
+        { name: "Home", icon: "🏠" },
+        { name: "Friends", icon: "👥" },
+        { name: "Create", icon: "➕" }, // Using 'Create' as page name for the '+' button's view
+        { name: "Inbox", icon: "📥" },
+        { name: "Profile", icon: "👤" },
       ];
 
       return (
         <div style={navBarStyle}>
           {navItems.map((item) => {
             const isActive = currentPage === item.name;
-            const currentItemStyle = item.name === 'Create' ? createButtonStyle(isActive) : navItemStyle;
+            const currentItemStyle =
+              item.name === "Create"
+                ? createButtonStyle(isActive)
+                : navItemStyle;
             return (
               <div
                 key={item.name}
@@ -156,7 +191,9 @@ function FrameContent() {
                 onClick={() => setCurrentPage(item.name)}
               >
                 <span style={iconStyle(isActive)}>{item.icon}</span>
-                <span style={textStyle(isActive)}>{item.name === 'Create' ? '' : item.name}</span>
+                <span style={textStyle(isActive)}>
+                  {item.name === "Create" ? "" : item.name}
+                </span>
                 {/* No text for Create button, or use 'Create' if preferred */}
               </div>
             );
@@ -168,7 +205,10 @@ function FrameContent() {
     return (
       <div style={loggedInContainerStyle}>
         <PageContentArea currentPage={currentPage} />
-        <BottomNavigationBar currentPage={currentPage} setCurrentPage={setCurrentPage} />
+        <BottomNavigationBar
+          currentPage={currentPage}
+          setCurrentPage={setCurrentPage}
+        />
       </div>
     );
   }
@@ -213,14 +253,15 @@ function FrameContent() {
     try {
       // Use popup instead of redirect to avoid GitHub Pages parameter issues
       const result = await auth.signInWithPopup(provider);
-      
+
       // This gives you a Google Access Token
-      const credential = firebase.auth.GoogleAuthProvider.credentialFromResult(result);
+      const credential =
+        firebase.auth.GoogleAuthProvider.credentialFromResult(result);
       const token = credential?.accessToken;
-      
+
       // The signed-in user info
       const user = result.user;
-      
+
       console.log("Sign-in successful!");
       console.log("Access Token:", token);
       console.log("User:", user);
