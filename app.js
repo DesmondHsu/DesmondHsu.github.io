@@ -113,10 +113,11 @@ function App() {
     margin: 0,
     padding: 0,
     backgroundColor: "#f0f0f0",
+    width: "100vw",
+    height: "100vh",
     display: "flex",
     justifyContent: "center",
     alignItems: "center",
-    minHeight: "100vh",
     fontFamily: "Arial, sans-serif",
     overflow: "auto",
   };
@@ -135,7 +136,8 @@ function App() {
     justifyContent: 'center',
     alignItems: 'center',
     width: '100%',
-    minHeight: '100vh',
+    height: '100%',
+    overflow: 'auto',
     padding: '20px',
     boxSizing: 'border-box'
   }
