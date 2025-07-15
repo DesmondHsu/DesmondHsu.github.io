@@ -116,7 +116,7 @@ function App() {
     alignItems: "center",
     height: "100vh",
     fontFamily: "Arial, sans-serif",
-    overflow: "hidden",
+    overflow: "auto",
   };
 
   const toggleOrientation = () => {
