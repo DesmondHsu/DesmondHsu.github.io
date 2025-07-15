@@ -55,6 +55,8 @@ function MobileFrame({ children, isLandscape }) {
   const frameStyle = {
     width: isLandscape ? "800px" : "360px",
     height: isLandscape ? "360px" : "720px",
+    minWidth: isLandscape ? "800px" : "360px",
+    minHeight: isLandscape ? "360px" : "720px",
     backgroundColor: "#333",
     borderRadius: "20px",
     padding: "20px",
@@ -112,11 +114,12 @@ function App() {
     padding: 0,
     backgroundColor: "#f0f0f0",
     display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: "flex-start",
+    alignItems: "flex-start",
     height: "100vh",
     fontFamily: "Arial, sans-serif",
     overflow: "auto",
+    padding: "20px",
   };
 
   const toggleOrientation = () => {
