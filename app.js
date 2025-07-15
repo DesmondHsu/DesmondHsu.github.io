@@ -114,12 +114,11 @@ function App() {
     padding: 0,
     backgroundColor: "#f0f0f0",
     display: "flex",
-    justifyContent: "flex-start",
-    alignItems: "flex-start",
-    height: "100vh",
+    justifyContent: "center",
+    alignItems: "center",
+    minHeight: "100vh",
     fontFamily: "Arial, sans-serif",
     overflow: "auto",
-    padding: "20px",
   };
 
   const toggleOrientation = () => {
@@ -131,17 +130,29 @@ function App() {
     console.log('Saved to localStorage:', localStorage.getItem('orientation-preference'));
   };
 
+  const frameWrapperStyle = {
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
+    minHeight: '100vh',
+    padding: '20px',
+    boxSizing: 'border-box'
+  }
+
   return (
     <div style={bodyStyle}>
       <OrientationSwitch
         isLandscape={isLandscape}
         onToggle={toggleOrientation}
       />
-      <MobileFrame isLandscape={isLandscape}>
-        <AppFrame>
-          <FrameContent />
-        </AppFrame>
-      </MobileFrame>
+      <div style={frameWrapperStyle}>
+        <MobileFrame isLandscape={isLandscape}>
+          <AppFrame>
+            <FrameContent />
+          </AppFrame>
+        </MobileFrame>
+      </div>
     </div>
   );
 }
